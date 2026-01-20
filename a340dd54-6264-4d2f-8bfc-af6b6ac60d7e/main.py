@@ -34,9 +34,9 @@ class TradingStrategy(Strategy):
         target_asset = "BIL" 
 
         # 2. Decision Logic
-        if rsi_uvxy_21 > 65:
-            if rsi_uvxy_10 > 74:
-                if rsi_uvxy_10 < 80:
+        if rsi_uvxy_21 > 55:
+            if rsi_uvxy_10 > 64:
+                if rsi_uvxy_10 < 70:
                     # 4.5% expressed as 0.045
                     if uvxy_2d_ret < 0.045:
                         target_asset = "SPXS"
