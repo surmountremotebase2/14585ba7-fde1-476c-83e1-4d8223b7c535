@@ -1,37 +1,74 @@
-import yfinance as yf
-import pandas_ta as ta
+from surmount.base_class import Strategy, TargetAllocation
+from surmount.technical_indicators import SMA, ATR
+from surmount.logging import log
 
-def run_symphony_algo():
-    # 1. Configuration
-    symbols = ["TAIL", "TQQQ", "BIL"]
-    lookback_period = 9  # RSI window
-    threshold = 88       # RSI trigger level
-    
-    # 2. Fetch Data (Daily frequency)
-    # Fetching 60 days to ensure enough data for the 9-day RSI calculation
-    data = yf.download(symbols, period="60d", interval="1d")
-    
-    # Clean up multi-index columns if necessary
-    close_prices = data['Close']
-    
-    # 3. Calculate RSI for "TAIL"
-    # Using pandas_ta for industry-standard RSI calculation
-    rsi_series = ta.rsi(close_prices['TAIL'], length=lookback_period)
-    current_rsi = rsi_series.iloc[-1]
-    
-    # 4. Decision Logic (The "If" Statement)
-    if current_rsi > threshold:
-        target_asset = "TQQQ"
-        reason = f"RSI of TAIL is {current_rsi:.2f} (Over {threshold})"
-    else:
-        target_asset = "BIL"
-        reason = f"RSI of TAIL is {current_rsi:.2f} (Below or equal to {threshold})"
-    
-    # 5. Output/Execution
-    print(f"--- Strategy: Post Vol Bump ---")
-    print(f"Current Signal: {target_asset}")
-    print(f"Logic: {reason}")
-    print(f"Action: Rebalance portfolio to 100% {target_asset}")
+class UVXYVolatilityTradingStrategyLog(Strategy):
 
-if __name__ == "__main__":
-    run_symphony_algo()
+    def __init__(self):
+        self.tickers = ["UVXY"]
+        log("Strategy initialized with tickers: UVXY")
+
+    @property
+    def assets(self):
+        log("Assets requested")
+        return self.tickers
+
+    @property
+    def interval(self):
+        log("Interval requested: 1day")
+        return "1day"
+
+    def run(self, data):
+        log("Run started")
+
+        # Extract OHLCV data
+        ohlcv_data = data.get("ohlcv", {})
+        log(f"Available OHLCV keys: {list(ohlcv_data.keys())}")
+
+        uvxy_data = ohlcv_data.get("UVXY", [])
+        log(f"UVXY data length: {len(uvxy_data)}")
+
+        # Ensure sufficient data
+        if len(uvxy_data) < 21:
+            log("Not enough data for indicators (need at least 21 bars)")
+            log("Returning 0% allocation to UVXY")
+            return TargetAllocation({"UVXY": 0})
+
+        # Calculate indicators
+        log("Calculating 20-day SMA")
+        sma_20 = SMA("UVXY", uvxy_data, length=20)
+
+        log("Calculating 14-day ATR")
+        atr_14 = ATR("UVXY", uvxy_data, length=14)
+
+        # Get price data
+        current_price = uvxy_data[-1]["close"]
+        previous_close = uvxy_data[-2]["close"]
+
+        log(f"Current close price: {current_price}")
+        log(f"Previous close price: {previous_close}")
+        log(f"Latest SMA(20): {sma_20[-1]}")
+        log(f"Latest ATR(14): {atr_14[-1]}")
+        log(f"Previous ATR(14): {atr_14[-2]}")
+
+        # Decision logic
+        if current_price > sma_20[-1] and atr_14[-1] > atr_14[-2]:
+            log("BUY signal triggered")
+            log("Reason: Price above SMA and volatility increasing")
+            allocation = {"UVXY": 1}
+
+        elif (
+            current_price < sma_20[-1]
+            or (atr_14[-1] < atr_14[-2] and previous_close > current_price)
+        ):
+            log("SELL / EXIT signal triggered")
+            log("Reason: Trend break or volatility decreasing with price drop")
+            allocation = {"UVXY": 0}
+
+        else:
+            log("No signal change detected")
+            log("Maintaining existing allocation")
+            return TargetAllocation()
+
+        log(f"Final allocation decision: {allocation}")
+        return TargetAllocation(allocation)
