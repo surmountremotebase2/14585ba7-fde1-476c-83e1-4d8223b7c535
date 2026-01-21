@@ -1,1 +1,1 @@
-{}
+{"groups": {}, "interval": "1day", "assets": ["SOXL", "BIL"], "strategy": [{"type": "IF", "conditions": [{"type": "BINARY", "first": {"name": "RSI", "args": {"ticker": "SOXL", "length": "14"}, "advanced": {}}, "second": {"name": "constant", "args": {"value": "30"}}, "comp": "<", "operator": ""}], "if_action": {"type": "ACTION", "steps": [{"action": "allocation", "asset": "SOXL", "amount": "100"}]}, "else_action": {"type": "ACTION", "steps": [{"action": "allocation", "asset": "BIL", "amount": "100"}]}}]}
